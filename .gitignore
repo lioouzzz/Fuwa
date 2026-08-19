@@ -1,0 +1,38 @@
+## Visual Studio
+.vs/
+*.user
+*.suo
+*.sln.docstates
+
+## Build
+bin/
+obj/
+
+## Logs
+log/
+Log
+*.log
+
+## VS Code / IDE
+.vscode/
+.idea/
+
+## OS
+.DS_Store
+Thumbs.db
+
+## ASP.NET
+appsettings.Development.json
+
+
+## Publish
+publish/
+wwwroot/dist/
+wwwroot/build/
+
+## Test
+TestResults/
+
+## NuGet
+packages/
+*.nupkg
