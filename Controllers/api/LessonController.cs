@@ -38,6 +38,19 @@ public class LessonsController : ControllerBase
         return Ok(lesson);
     }
 
+    [HttpGet("Detail/{id}")]
+    public async Task<IActionResult> GetLessonDetail(int id)
+    {
+        var lessonDetail = await _lessonService.GetLessonDetail(id);
+
+        if (lessonDetail == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(lessonDetail);
+    }
+
     [HttpPost]
     public async Task<IActionResult> CreateLesson([FromBody] CreateLessonDto dto)
     {
