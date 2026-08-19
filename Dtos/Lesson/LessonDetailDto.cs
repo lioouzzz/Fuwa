@@ -11,7 +11,7 @@ public class LessonDetailDto
     public int LessonNumber { get; set; }
     public string? Description { get; set; }
 
-    public List<VocabularyDto> Vocabularies { get; set; }
-    public List<GrammarDto> Grammars { get; set; }
+    public List<VocabularyDto> Vocabularies { get; set; } = new();
+    public List<GrammarDto> Grammars { get; set; } = new();
 
 }

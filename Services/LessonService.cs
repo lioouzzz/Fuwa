@@ -2,8 +2,11 @@ using Data;
 using Microsoft.EntityFrameworkCore;
 using Services.Interfaces;
 using Dtos.Lessons;
+using Dtos.Vocabulary;
 using Models;
 using Helper;
+using Dtos.Grammar;
+using Dtos.GrammarExample;
 
 namespace Services;
 
@@ -58,6 +61,60 @@ public class LessonService : ILessonService
 
     }
 
+
+    public async Task<LessonDetailDto> GetLessonDetail(int id)
+    {
+        var lessonDetail = await _dbContext.Lessons
+             .AsNoTracking()
+             .Where(lesson => lesson.Id == id)
+             .OrderBy(lesson => lesson.Id)
+             .Select(lesson => new LessonDetailDto
+             {
+                 Id = lesson.Id,
+                 Title = lesson.Title,
+                 LessonNumber = lesson.LessonNumber,
+                 Description = lesson.Description,
+
+                 Vocabularies = lesson.Vocabularies
+                                      .Select(vcl => new VocabularyDto
+                                      {
+                                          Id = vcl.Id,
+                                          LessonNumber = vcl.Lesson.LessonNumber,
+                                          JapaneseName = vcl.JapanenseName,
+                                          KanaName = vcl.KanaName,
+                                          ChineseName = vcl.ChineseName,
+                                          PartOfSpeech = vcl.PartOfSpeech
+                                      }).ToList(),
+
+                 Grammars = lesson.Grammars
+                               .Select(grammar => new GrammarDto
+                               {
+                                   Id = grammar.Id,
+                                   LessonNumber = grammar.Lesson.LessonNumber,
+                                   GrammarName = grammar.GrammarName,
+                                   GrammarChineseName = grammar.GrammarChineseName,
+
+                                   GrammarExamples = grammar.GrammarExamples
+                                                            .Select(example => new GrammarExampleDto
+                                                            {
+                                                                Id = example.Id,
+                                                                GrammarId = example.GrammarId,
+                                                                Japanese = example.Japanese,
+                                                                Translation = example.Translation
+                                                            }).ToList()
+
+                               }).ToList()
+
+             }).FirstOrDefaultAsync();
+
+        if (lessonDetail == null)
+        {
+            _logger.LogWarning("查詢不到此課程 Id: {id}", id);
+            return null;
+        }
+
+        return lessonDetail;
+    }
     public async Task<ServiceResult<LessonDto>> CreateLessonAsync(CreateLessonDto dto)
     {
         var lesson = new Lesson
