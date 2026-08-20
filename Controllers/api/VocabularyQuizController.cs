@@ -1,7 +1,7 @@
 using Dtos.Quiz;
 using Microsoft.AspNetCore.Mvc;
 using Services.Interfaces;
-
+using Helper;
 [ApiController]
 [Route("api/[controller]")]
 public class VocabularyQuizController : ControllerBase
@@ -25,5 +25,51 @@ public class VocabularyQuizController : ControllerBase
         }
 
         return Ok(result);
+    }
+
+
+    [HttpPost]
+    public async Task<IActionResult> SubmitAnswer(SubmitVocabularyAnswerDto dto)
+    {
+        var result = await _quizservice.SubmitVocabularyAnswer(dto);
+
+        if (!result.Success)
+        {
+            if (result.apiResultStatus == ApiResultStatus.Conflict)
+            {
+                return Conflict(new
+                {
+                    Success = false,
+                    message = result.Message
+
+                });
+            }
+
+            if (result.apiResultStatus == ApiResultStatus.NotFound)
+            {
+                return NotFound(new
+                {
+                    Success = false,
+                    message = result.Message
+
+                });
+            }
+
+            if (result.apiResultStatus == ApiResultStatus.Validation)
+            {
+                return NotFound(new
+                {
+                    Success = false,
+                    message = result.Message
+
+                });
+            }
+
+        }
+
+        return Ok(new
+        {
+            Data = result
+        });
     }
 }

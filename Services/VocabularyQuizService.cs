@@ -29,6 +29,7 @@ public class VocabularyQuizService : IVocabularyQuizService
 
             return new ServiceResult<VocabularyQuizDto>
             {
+                apiResultStatus = ApiResultStatus.NotFound,
                 Success = false,
                 Message = "找不到此測驗對應的課程Id"
 
@@ -47,6 +48,7 @@ public class VocabularyQuizService : IVocabularyQuizService
             _logger.LogWarning("此課程單字數量小於四，無法產生測驗答案");
             return new ServiceResult<VocabularyQuizDto>
             {
+                apiResultStatus = ApiResultStatus.NotFound,
                 Success = false,
                 Message = "此課程單字數量小於四，無法產生測驗答案",
             };
@@ -106,4 +108,45 @@ public class VocabularyQuizService : IVocabularyQuizService
             Data = dto
         };
     }
+
+    public async Task<ServiceResult<bool>> SubmitVocabularyAnswer(SubmitVocabularyAnswerDto dto)
+    {
+        var answer = await _dbContext.Vocabularies
+                         .FirstOrDefaultAsync(v => v.Id == dto.VocabularyId);
+
+        if (answer == null)
+        {
+            _logger.LogWarning("此為不存在的單字，請重新輸入");
+
+            return new ServiceResult<bool>
+            {
+                apiResultStatus = ApiResultStatus.NotFound,
+                Success = false,
+                Message = "此為不存在的單字，請重新輸入"
+            };
+        }
+
+        var answerResult = dto.Answer == answer.KanaName;
+
+        if (!answerResult)
+        {
+            _logger.LogInformation("測驗結果錯誤");
+
+            return new ServiceResult<bool>
+            {
+                apiResultStatus = ApiResultStatus.Validation,
+                Success = false,
+                Message = "測驗結果錯誤"
+            };
+        }
+
+        return new ServiceResult<bool>
+        {
+            Success = true,
+            Message = "測驗答案結果正確",
+            Data = answerResult
+        };
+
+    }
+
 }
