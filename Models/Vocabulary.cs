@@ -16,5 +16,6 @@ namespace Models
         public string PartOfSpeech { get; set; } = string.Empty;
 
         public Lesson Lesson { get; set; } = null!;
+        public List<QuizAnswer> QuizAnswers = new();
     }
 }
