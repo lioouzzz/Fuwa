@@ -18,7 +18,7 @@ public class VocabularyQuizService : IVocabularyQuizService
         _logger = logger;
     }
 
-    public async Task<ServiceResult<VocabularyQuizDto>> GenerateQuestion(int lessonId)
+    public async Task<ServiceResult<VocabularyQuizDto>> GenerateQuestion(int lessonId, VocabularyQuizType type)
     {
 
         var lessonExists = await _dbContext.Lessons.AnyAsync(x => x.Id == lessonId);
@@ -73,31 +73,100 @@ public class VocabularyQuizService : IVocabularyQuizService
                             .Take(3)
                             .ToList();
 
-        //組合出正確答案＋錯誤答案
-        var options = wrongAnsers
-            .Select(v => new QuizOptionDto
-            {
-                VocabularyId = v.Id,
-                Text = v.ChineseName
-            }).ToList();
 
-        options.Add(new QuizOptionDto
+        List<QuizOptionDto> options;
+
+
+        switch (type)
         {
-            VocabularyId = correctVocabulary.Id,
-            Text = correctVocabulary.ChineseName
-        });
+            case VocabularyQuizType.ChineseToJapanese:
+                options = wrongAnsers
+                  .Select(v => new QuizOptionDto
+                  {
+                      VocabularyId = v.Id,
+                      Text = v.JapanenseName
+                  }).ToList();
+                options.Add(new QuizOptionDto
+                {
+                    VocabularyId = correctVocabulary.Id,
+                    Text = correctVocabulary.JapanenseName
+                });
+                break;
+
+            case VocabularyQuizType.JapaneseToChinese:
+                options = wrongAnsers
+                .Select(v => new QuizOptionDto
+                {
+                    VocabularyId = v.Id,
+                    Text = v.ChineseName
+                }).ToList();
+
+                options.Add(new QuizOptionDto
+                {
+                    VocabularyId = correctVocabulary.Id,
+                    Text = correctVocabulary.ChineseName
+                });
+
+                break;
+
+            case VocabularyQuizType.HiraganaToKana:
+                options = wrongAnsers
+                .Select(v => new QuizOptionDto
+                {
+                    VocabularyId = v.Id,
+                    Text = v.KanaName
+                }).ToList();
+
+                options.Add(new QuizOptionDto
+                {
+                    VocabularyId = correctVocabulary.Id,
+                    Text = correctVocabulary.KanaName
+                });
+
+                break;
+
+            default:
+                return new ServiceResult<VocabularyQuizDto>
+                {
+                    Success = false,
+                    Message = "不存在的測驗類型"
+                };
 
 
-        //打亂組合
-        options = options
-            .OrderBy(option => Guid.NewGuid())
-            .ToList();
+        }
+
+
+        string questions;
+
+        switch (type)
+        {
+            case VocabularyQuizType.ChineseToJapanese:
+                questions = correctVocabulary.ChineseName;
+                break;
+
+            case VocabularyQuizType.JapaneseToChinese:
+                questions = correctVocabulary.JapanenseName;
+                break;
+
+            case VocabularyQuizType.HiraganaToKana:
+                questions = correctVocabulary.JapanenseName;
+                break;
+
+            default:
+                return new ServiceResult<VocabularyQuizDto>
+                {
+                    Success = false,
+                    Message = "不存在的測驗類型"
+                };
+        }
+
 
         //回傳題目
         var dto = new VocabularyQuizDto
         {
             VocabularyId = correctVocabulary.Id,
-            Question = correctVocabulary.JapanenseName,
+            Question = questions,
+            Type = type,
             Options = options
         };
 
@@ -126,7 +195,31 @@ public class VocabularyQuizService : IVocabularyQuizService
             };
         }
 
-        var answerResult = dto.Answer == answer.KanaName;
+        bool answerResult;
+
+        switch (dto.Type)
+        {
+            case VocabularyQuizType.ChineseToJapanese:
+                answerResult = dto.Answer == answer.JapanenseName;
+                break;
+
+            case VocabularyQuizType.JapaneseToChinese:
+                answerResult = dto.Answer == answer.ChineseName;
+                break;
+
+            case VocabularyQuizType.HiraganaToKana:
+                answerResult = dto.Answer == answer.KanaName;
+                break;
+
+            default:
+                return new ServiceResult<bool>
+                {
+                    Success = false,
+                    Message = "不存在的測驗類型",
+                    Data = false
+                };
+        }
+
 
         if (!answerResult)
         {
@@ -136,7 +229,8 @@ public class VocabularyQuizService : IVocabularyQuizService
             {
                 apiResultStatus = ApiResultStatus.Validation,
                 Success = false,
-                Message = "測驗結果錯誤"
+                Message = "測驗結果錯誤",
+                Data = false
             };
         }
 
