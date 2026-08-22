@@ -12,5 +12,6 @@ namespace Models
 
         public List<Grammar> Grammars { get; set; } = new();
         public List<Vocabulary> Vocabularies { get; set; } = new();
+        public List<QuizAttempt> QuizAttempts { get; set; } = new();
     }
 }
