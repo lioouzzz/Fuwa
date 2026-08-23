@@ -18,6 +18,81 @@ public class VocabularyQuizService : IVocabularyQuizService
         _logger = logger;
     }
 
+    //開始測驗API
+    public async Task<ServiceResult<StartQuizAnswerResponseDto>> StartQuizAsync(StartQuizRequestDto dto)
+    {
+        var lessonExists = await _dbContext.Lessons
+                                    .AnyAsync(l => l.Id == dto.LessonId);
+
+        if (!lessonExists)
+        {
+            _logger.LogWarning("測驗的課程不存在,測驗Id: {Id}", dto.LessonId);
+
+            return new ServiceResult<StartQuizAnswerResponseDto>
+            {
+                apiResultStatus = ApiResultStatus.NotFound,
+                Success = false,
+                Message = "找不到此測驗對應的課程Id"
+
+            };
+        }
+
+        // 2. 檢查 QuizType
+        if (!Enum.IsDefined(typeof(VocabularyQuizType), dto.QuizType))
+        {
+            return new ServiceResult<StartQuizAnswerResponseDto>
+            {
+                Success = false,
+                Message = "測驗類型不存在"
+            };
+        }
+
+        if (dto.TotalQuestions < 0)
+        {
+            _logger.LogWarning("測驗的總題數輸入小於0,TotalQuestions: {TotalQuestions}", dto.TotalQuestions);
+
+            return new ServiceResult<StartQuizAnswerResponseDto>
+            {
+                apiResultStatus = ApiResultStatus.NotFound,
+                Success = false,
+                Message = "測驗的總題數輸入小於0"
+
+            };
+
+        }
+
+
+
+        var quizAttempt = new QuizAttempt
+        {
+            LessonId = dto.LessonId,
+            QuizType = dto.QuizType,
+            TotalQuestions = dto.TotalQuestions,
+            CorrectCount = 0,
+            StartedAt = DateTime.UtcNow,
+            CompletedAt = null
+        };
+
+        _dbContext.QuizAttempt.Add(quizAttempt);
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation("已新增quizAttempt資料。ID: {Id}", quizAttempt.Id);
+
+
+        var resDto = new StartQuizAnswerResponseDto
+        {
+            QuizAttemptId = quizAttempt.Id
+        };
+
+        return new ServiceResult<StartQuizAnswerResponseDto>
+        {
+            Success = true,
+            Message = "成功建立開始測驗API",
+            Data = resDto
+        };
+
+    }
+
     public async Task<ServiceResult<VocabularyQuizDto>> GenerateQuestion(int lessonId, VocabularyQuizType type)
     {
 
@@ -149,7 +224,7 @@ public class VocabularyQuizService : IVocabularyQuizService
                 break;
 
             case VocabularyQuizType.HiraganaToKana:
-                questions = correctVocabulary.JapanenseName;
+                questions = correctVocabulary.KanaName;
                 break;
 
             default:
@@ -180,10 +255,50 @@ public class VocabularyQuizService : IVocabularyQuizService
 
     public async Task<ServiceResult<bool>> SubmitVocabularyAnswer(SubmitVocabularyAnswerDto dto)
     {
-        var answer = await _dbContext.Vocabularies
+
+        //找這次測驗
+        var quizAttempt = await _dbContext.QuizAttempt.FirstOrDefaultAsync(q => q.Id == dto.QuizAttemptId);
+
+        if (quizAttempt == null)
+        {
+            return new ServiceResult<bool>
+            {
+                Success = false,
+                Message = "找不到此測驗"
+            };
+        }
+
+        // 先判斷此測驗是否已完成
+        if (quizAttempt.CompletedAt != null)
+        {
+            return new ServiceResult<bool>
+            {
+                Success = false,
+                Message = "此測驗已完成"
+            };
+        }
+
+        //計算目前已經回答幾題
+        var answeredCount = await _dbContext.QuizAnswer
+            .CountAsync(a => a.QuizAttemptId == quizAttempt.Id);
+
+
+
+        // 防止超過總題數
+        if (answeredCount >= quizAttempt.TotalQuestions)
+        {
+            return new ServiceResult<bool>
+            {
+                Success = false,
+                Message = "此測驗已達作答題數上限"
+            };
+        }
+
+
+        var vocabulary = await _dbContext.Vocabularies
                          .FirstOrDefaultAsync(v => v.Id == dto.VocabularyId);
 
-        if (answer == null)
+        if (vocabulary == null)
         {
             _logger.LogWarning("此為不存在的單字，請重新輸入");
 
@@ -195,20 +310,20 @@ public class VocabularyQuizService : IVocabularyQuizService
             };
         }
 
-        bool answerResult;
+        bool isCorrect;
 
-        switch (dto.Type)
+        switch (quizAttempt.QuizType)
         {
             case VocabularyQuizType.ChineseToJapanese:
-                answerResult = dto.Answer == answer.JapanenseName;
+                isCorrect = dto.Answer == vocabulary.JapanenseName;
                 break;
 
             case VocabularyQuizType.JapaneseToChinese:
-                answerResult = dto.Answer == answer.ChineseName;
+                isCorrect = dto.Answer == vocabulary.ChineseName;
                 break;
 
             case VocabularyQuizType.HiraganaToKana:
-                answerResult = dto.Answer == answer.KanaName;
+                isCorrect = dto.Answer == vocabulary.KanaName;
                 break;
 
             default:
@@ -220,25 +335,37 @@ public class VocabularyQuizService : IVocabularyQuizService
                 };
         }
 
-
-        if (!answerResult)
+        //  建立這一題的答題紀錄
+        var quizAnswer = new QuizAnswer
         {
-            _logger.LogInformation("測驗結果錯誤");
+            QuizAttemptId = quizAttempt.Id,
+            VocabularyId = vocabulary.Id,
+            UserAnswer = dto.Answer,
+            IsCorrect = isCorrect
+        };
 
-            return new ServiceResult<bool>
-            {
-                apiResultStatus = ApiResultStatus.Validation,
-                Success = false,
-                Message = "測驗結果錯誤",
-                Data = false
-            };
+        _dbContext.QuizAnswer.Add(quizAnswer);
+
+        // 答對的話更新總答對數
+        if (isCorrect)
+        {
+            quizAttempt.CorrectCount++;
         }
+
+        if (answeredCount + 1 >= quizAttempt.TotalQuestions)
+        {
+            quizAttempt.CompletedAt = DateTime.UtcNow;
+        }
+
+
+        //  一次存進 DB
+        await _dbContext.SaveChangesAsync();
 
         return new ServiceResult<bool>
         {
             Success = true,
-            Message = "測驗答案結果正確",
-            Data = answerResult
+            Message = isCorrect ? "測驗結果答對" : "測驗結果答錯",
+            Data = isCorrect
         };
 
     }
