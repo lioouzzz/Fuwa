@@ -3,6 +3,7 @@ using System;
 using Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Fuwa.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260822083753_AddQuizAttempt")]
+    partial class AddQuizAttempt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -94,36 +97,6 @@ namespace Fuwa.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Lessons");
-                });
-
-            modelBuilder.Entity("Models.QuizAnswer", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("IsCorrect")
-                        .HasColumnType("boolean");
-
-                    b.Property<int>("QuizAttemptId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("UserAnswer")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("VocabularyId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("QuizAttemptId");
-
-                    b.HasIndex("VocabularyId");
-
-                    b.ToTable("QuizAnswer");
                 });
 
             modelBuilder.Entity("Models.QuizAttempt", b =>
@@ -215,25 +188,6 @@ namespace Fuwa.Migrations
                     b.Navigation("Grammar");
                 });
 
-            modelBuilder.Entity("Models.QuizAnswer", b =>
-                {
-                    b.HasOne("Models.QuizAttempt", "QuizAttempt")
-                        .WithMany("QuizAnswers")
-                        .HasForeignKey("QuizAttemptId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Models.Vocabulary", "Vocabulary")
-                        .WithMany("QuizAnswers")
-                        .HasForeignKey("VocabularyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("QuizAttempt");
-
-                    b.Navigation("Vocabulary");
-                });
-
             modelBuilder.Entity("Models.QuizAttempt", b =>
                 {
                     b.HasOne("Models.Lesson", "Lesson")
@@ -268,16 +222,6 @@ namespace Fuwa.Migrations
                     b.Navigation("QuizAttempts");
 
                     b.Navigation("Vocabularies");
-                });
-
-            modelBuilder.Entity("Models.QuizAttempt", b =>
-                {
-                    b.Navigation("QuizAnswers");
-                });
-
-            modelBuilder.Entity("Models.Vocabulary", b =>
-                {
-                    b.Navigation("QuizAnswers");
                 });
 #pragma warning restore 612, 618
         }

@@ -29,6 +29,10 @@ builder.Services.AddScoped<IGrammarService, GrammarService>();
 
 //註冊GrammarExampleService
 builder.Services.AddScoped<IGrammarExampleService, GrammarExampleService>();
+
+//註冊VocabularyQuizService
+builder.Services.AddScoped<IVocabularyQuizService, VocabularyQuizService>();
+
 //註冊全域錯誤
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
