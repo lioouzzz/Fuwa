@@ -93,27 +93,60 @@ public class VocabularyQuizService : IVocabularyQuizService
 
     }
 
-    public async Task<ServiceResult<VocabularyQuizDto>> GenerateQuestion(int lessonId, VocabularyQuizType type)
+    public async Task<ServiceResult<VocabularyQuizDto>> GenerateVocabularyQuestion(int quizAttemptId)
     {
+        //找這次測驗
+        var quizAttempt = await _dbContext.QuizAttempt
+                                         .FirstOrDefaultAsync(q => q.Id == quizAttemptId);
 
-        var lessonExists = await _dbContext.Lessons.AnyAsync(x => x.Id == lessonId);
-
-        if (!lessonExists)
+        if (quizAttempt == null)
         {
-            _logger.LogWarning("找不到此測驗對應的課程Id LessonId: {LessonId}", lessonId);
+            _logger.LogWarning("找不到此測驗對應的課程Id quizAttempt: {quizAttemptId}", quizAttemptId);
 
             return new ServiceResult<VocabularyQuizDto>
             {
                 apiResultStatus = ApiResultStatus.NotFound,
                 Success = false,
-                Message = "找不到此測驗對應的課程Id"
-
+                Message = "找不到此測驗quizAttempt"
             };
         }
-        //抓全部單字
-        var vocabularies = await _dbContext.Vocabularies
-                                         .Where(v => v.LessonId == lessonId)
+
+
+        //先判斷此測驗是否已完成
+        if (quizAttempt.CompletedAt != null)
+        {
+            _logger.LogInformation("此測驗已完成");
+
+            return new ServiceResult<VocabularyQuizDto>
+            {
+                Success = false,
+                Message = "此測驗已完成"
+            };
+        }
+
+        //找這場測驗已經回答過哪些 Vocabulary
+        var answeredVocabulary = await _dbContext.QuizAnswer
+                                         .Where(a => a.QuizAttemptId == quizAttemptId)
+                                         .Select(a => a.VocabularyId)
                                          .ToListAsync();
+
+
+        //已經回答完指定題數，就不能再出題
+        if (answeredVocabulary.Count == quizAttempt.TotalQuestions)
+        {
+            return new ServiceResult<VocabularyQuizDto>
+            {
+                Success = false,
+                Message = "此測驗已達作答題數上限"
+            };
+        }
+
+
+        //找對應課程全部的單字
+        var vocabularies = await _dbContext.Vocabularies
+                .Where(v => v.LessonId == quizAttempt.LessonId)
+                .ToListAsync();
+
 
         var count = vocabularies.Count;
 
@@ -130,19 +163,34 @@ public class VocabularyQuizService : IVocabularyQuizService
         }
 
 
+        //正確答案候選
+        //排除這場測驗已經回答過的 Vocabulary
+        var availableVocabularies = vocabularies.Where(v => !answeredVocabulary.Contains(v.Id)).ToList();
 
-        //隨機選一個當作答案
-        var random = new Random();
 
-        // 隨機產生一個 index 隨機數
-        var randomIndex = random.Next(count);
+        if (availableVocabularies.Count == 0)
+        {
+            _logger.LogWarning("此課程單字數量為0,無法出題");
+
+            return new ServiceResult<VocabularyQuizDto>
+            {
+                Success = false,
+                Message = "此課程已沒有可出的單字"
+            };
+        }
+
+
+
+        // 從尚未回答過的單字中選正確答案
+        // Random.Shared.Next (取得從 0 到很大的正整數)
+        var randomIndex = Random.Shared.Next(availableVocabularies.Count);
 
 
         var correctVocabulary = vocabularies[randomIndex];
 
 
         //排除答案，再選另外三個
-        var wrongAnsers = vocabularies
+        var wrongAnsers = availableVocabularies
                             .Where(v => v.Id != correctVocabulary.Id)
                             .OrderBy(v => Guid.NewGuid())
                             .Take(3)
@@ -152,7 +200,7 @@ public class VocabularyQuizService : IVocabularyQuizService
         List<QuizOptionDto> options;
 
 
-        switch (type)
+        switch (quizAttempt.QuizType)
         {
             case VocabularyQuizType.ChineseToJapanese:
                 options = wrongAnsers
@@ -213,7 +261,7 @@ public class VocabularyQuizService : IVocabularyQuizService
 
         string questions;
 
-        switch (type)
+        switch (quizAttempt.QuizType)
         {
             case VocabularyQuizType.ChineseToJapanese:
                 questions = correctVocabulary.ChineseName;
@@ -235,13 +283,14 @@ public class VocabularyQuizService : IVocabularyQuizService
                 };
         }
 
+        options = options.OrderBy(x => Guid.NewGuid()).ToList();
 
         //回傳題目
         var dto = new VocabularyQuizDto
         {
             VocabularyId = correctVocabulary.Id,
             Question = questions,
-            Type = type,
+            Type = quizAttempt.QuizType,
             Options = options
         };
 
@@ -261,6 +310,7 @@ public class VocabularyQuizService : IVocabularyQuizService
 
         if (quizAttempt == null)
         {
+            _logger.LogWarning("此quizAttempt不存在 ,  quizAttemptId: {quizAttemptId}", dto.QuizAttemptId);
             return new ServiceResult<bool>
             {
                 Success = false,
@@ -271,6 +321,8 @@ public class VocabularyQuizService : IVocabularyQuizService
         // 先判斷此測驗是否已完成
         if (quizAttempt.CompletedAt != null)
         {
+            _logger.LogInformation("此測驗已完成");
+
             return new ServiceResult<bool>
             {
                 Success = false,

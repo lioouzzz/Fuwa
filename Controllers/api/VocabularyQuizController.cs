@@ -55,9 +55,9 @@ public class VocabularyQuizController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GenerateQuestion(int lessonId, VocabularyQuizType type)
+    public async Task<IActionResult> GenerateQuestion(int quizAttemptId)
     {
-        var result = await _quizservice.GenerateQuestion(lessonId, type);
+        var result = await _quizservice.GenerateVocabularyQuestion(quizAttemptId);
 
         if (result == null)
         {
