@@ -93,6 +93,7 @@ public class VocabularyQuizService : IVocabularyQuizService
 
     }
 
+
     public async Task<ServiceResult<VocabularyQuizDto>> GenerateVocabularyQuestion(int quizAttemptId)
     {
         //找這次測驗
@@ -298,6 +299,57 @@ public class VocabularyQuizService : IVocabularyQuizService
         {
             Success = true,
             Message = "成功取得測驗題目和答案",
+            Data = dto
+        };
+    }
+
+    public async Task<ServiceResult<QuizResultDto>> GetVocabularyQuizResult(int quizAttemptId)
+    {
+        var quizAttempt = await _dbContext.QuizAttempt
+                                .FirstOrDefaultAsync(q => q.Id == quizAttemptId);
+
+        if (quizAttempt == null)
+        {
+            _logger.LogWarning("找不到此測驗對應的課程Id quizAttempt: {quizAttemptId}", quizAttemptId);
+
+            return new ServiceResult<QuizResultDto>
+            {
+                apiResultStatus = ApiResultStatus.NotFound,
+                Success = false,
+                Message = "找不到此測驗quizAttempt"
+            };
+        }
+
+        var wrongAnswer = quizAttempt.TotalQuestions - quizAttempt.CorrectCount;
+
+        double accuracy = 0;
+        if (quizAttempt.TotalQuestions > 0)
+        {
+            accuracy = ((double)quizAttempt.CorrectCount / quizAttempt.TotalQuestions) * 100;
+
+        }
+
+        var duration = quizAttempt.CompletedAt.Value
+                     - quizAttempt.StartedAt;
+
+        int durationSeconds = (int)duration.TotalSeconds;
+
+        var dto = new QuizResultDto
+        {
+            QuizAttemptId = quizAttempt.Id,
+            LessonId = quizAttempt.LessonId,
+            QuizType = quizAttempt.QuizType,
+            TotalQuestions = quizAttempt.TotalQuestions,
+            CorrectCount = quizAttempt.CorrectCount,
+            WrongCount = wrongAnswer,
+            Accuracy = accuracy,
+            DurationSeconds = durationSeconds
+        };
+
+        return new ServiceResult<QuizResultDto>
+        {
+            Success = true,
+            Message = "成功取得測驗結果",
             Data = dto
         };
     }

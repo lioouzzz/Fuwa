@@ -55,7 +55,7 @@ public class VocabularyQuizController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GenerateQuestion(int quizAttemptId)
+    public async Task<IActionResult> GenerateVocabularyQuestion(int quizAttemptId)
     {
         var result = await _quizservice.GenerateVocabularyQuestion(quizAttemptId);
 
@@ -67,6 +67,19 @@ public class VocabularyQuizController : ControllerBase
         return Ok(result);
     }
 
+
+    [HttpGet("result")]
+    public async Task<IActionResult> GetVocabularyQuizResult(int quizAttemptId)
+    {
+        var result = await _quizservice.GetVocabularyQuizResult(quizAttemptId);
+
+        if (result == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(result);
+    }
 
     [HttpPost("answer")]
     public async Task<IActionResult> SubmitAnswer(SubmitVocabularyAnswerDto dto)
