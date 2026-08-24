@@ -6,7 +6,7 @@ namespace Services.Interfaces;
 public interface IVocabularyQuizService
 {
     Task<ServiceResult<StartQuizAnswerResponseDto>> StartQuizAsync(StartQuizRequestDto dto);
-    Task<ServiceResult<VocabularyQuizDto>> GenerateQuestion(int lessonId, VocabularyQuizType type);
+    Task<ServiceResult<VocabularyQuizDto>> GenerateVocabularyQuestion(int quizAttemptId);
 
     Task<ServiceResult<bool>> SubmitVocabularyAnswer(SubmitVocabularyAnswerDto dto);
 }
