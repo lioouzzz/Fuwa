@@ -354,6 +354,48 @@ public class VocabularyQuizService : IVocabularyQuizService
         };
     }
 
+
+    //測驗歷史紀錄
+    public async Task<ServiceResult<List<QuizVocabularyHistoryDto>>> GetQuizVocabularyHistory()
+    {
+        var history = await _dbContext.QuizAttempt
+                                      .AsNoTracking()
+                                      .Where(q => q.CompletedAt != null)
+                                      .OrderBy(q => q.CompletedAt)
+                                      .Select(q => new QuizVocabularyHistoryDto
+                                      {
+                                          QuizAttemptId = q.Id,
+                                          LessonId = q.LessonId,
+                                          LessonNumber = q.Lesson.LessonNumber,
+                                          QuizType = q.QuizType,
+                                          TotalQuestions = q.TotalQuestions,
+                                          CorrectCount = q.CorrectCount,
+                                          WrongCount = q.TotalQuestions - q.CorrectCount,
+                                          Accuracy = q.TotalQuestions > 0 ? (double)q.CorrectCount / q.TotalQuestions * 100 : 0,
+                                          StartedAt = q.StartedAt,
+                                          CompletedAt = q.CompletedAt,
+                                          DurationSeconds = (int)(q.CompletedAt.Value - q.StartedAt).TotalSeconds
+                                      }).ToListAsync();
+
+        if (history == null)
+        {
+            return new ServiceResult<List<QuizVocabularyHistoryDto>>
+            {
+                apiResultStatus = ApiResultStatus.NotFound,
+                Success = false,
+                Message = "查詢歷史測驗紀錄失敗"
+            };
+        }
+
+
+        return new ServiceResult<List<QuizVocabularyHistoryDto>>
+        {
+            Success = true,
+            Message = "查詢歷史測驗紀錄成功",
+            Data = history
+        };
+
+    }
     public async Task<ServiceResult<bool>> SubmitVocabularyAnswer(SubmitVocabularyAnswerDto dto)
     {
 
