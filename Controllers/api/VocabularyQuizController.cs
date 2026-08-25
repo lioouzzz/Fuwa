@@ -81,6 +81,20 @@ public class VocabularyQuizController : ControllerBase
         return Ok(result);
     }
 
+
+    [HttpGet("History")]
+    public async Task<IActionResult> GetVocabularyQuizHistory()
+    {
+        var result = await _quizservice.GetQuizVocabularyHistory();
+
+        if (result == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(result);
+    }
+
     [HttpPost("answer")]
     public async Task<IActionResult> SubmitAnswer(SubmitVocabularyAnswerDto dto)
     {
