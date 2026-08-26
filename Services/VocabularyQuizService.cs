@@ -398,55 +398,66 @@ public class VocabularyQuizService : IVocabularyQuizService
 
     }
 
+
     //建立全部的錯題本
-    public async Task<ServiceResult<List<QuizWrongAnswerDto>>> GetAllWrongAnswers(VocabularyQuizType quizType)
+    public async Task<ServiceResult<List<QuizWrongAnswerBookDto>>> GetWrongAnswerBookAsync(VocabularyQuizType quizType)
     {
 
         if (!Enum.IsDefined(typeof(VocabularyQuizType), quizType))
         {
-            return new ServiceResult<List<QuizWrongAnswerDto>>
+            return new ServiceResult<List<QuizWrongAnswerBookDto>>
             {
                 apiResultStatus = ApiResultStatus.NotFound,
                 Success = false,
                 Message = "不存在的測驗類型"
             };
         }
-
-
-        var wrongAnswer = await _dbContext.QuizAnswer
+        var wrongAnswerCount = await _dbContext.QuizAnswer
                         .Where(answer => answer.IsCorrect == false &&
                                answer.QuizAttempt.QuizType == quizType &&
                                answer.QuizAttempt.CompletedAt != null)
 
-                        .Select(answer => new QuizWrongAnswerDto
+                        .GroupBy(answer => new
                         {
-                            LessonId = answer.QuizAttempt.LessonId,
-                            QuizAttemptId = answer.QuizAttemptId,
-                            Type = quizType,
-                            VocabularyId = answer.VocabularyId,
-                            UserAnswer = answer.UserAnswer,
+                            answer.QuizAttempt.LessonId,
+                            answer.QuizAttempt.QuizType,
+                            answer.VocabularyId,
+                            answer.Vocabulary.JapanenseName,
+                            answer.Vocabulary.KanaName,
+                            answer.Vocabulary.ChineseName
 
-                            //根據type回傳不同類型的問題
+                        })
+
+                        .Select(group => new QuizWrongAnswerBookDto
+                        {
+                            LessonId = group.Key.LessonId,
+                            Type = group.Key.QuizType,
+                            VocabularyId = group.Key.VocabularyId,
+
                             Question =
+                                quizType == VocabularyQuizType.JapaneseToChinese ? group.Key.JapanenseName
+                                 : quizType == VocabularyQuizType.HiraganaToKana ? group.Key.JapanenseName
+                                : quizType == VocabularyQuizType.ChineseToJapanese ? group.Key.ChineseName
+                                : string.Empty,
 
-                            quizType == VocabularyQuizType.ChineseToJapanese ? answer.Vocabulary.ChineseName
-                            : quizType == VocabularyQuizType.HiraganaToKana ? answer.Vocabulary.JapanenseName
-                            : quizType == VocabularyQuizType.JapaneseToChinese ? answer.Vocabulary.JapanenseName
+                            CorrectAnswer =
+                            quizType == VocabularyQuizType.ChineseToJapanese ? group.Key.JapanenseName
+                            : quizType == VocabularyQuizType.HiraganaToKana ? group.Key.KanaName
+                            : quizType == VocabularyQuizType.JapaneseToChinese ? group.Key.ChineseName
                             : string.Empty,
 
-                            //根據type回傳正確答案
-                            CorrectAnswer =
-                            quizType == VocabularyQuizType.ChineseToJapanese ? answer.Vocabulary.JapanenseName
-                            : quizType == VocabularyQuizType.HiraganaToKana ? answer.Vocabulary.KanaName
-                           : quizType == VocabularyQuizType.JapaneseToChinese ? answer.Vocabulary.ChineseName
-                           : string.Empty
+                            WrongVocabularyCount = group.Count(),
+
+
+
                         }).ToListAsync();
 
-        return new ServiceResult<List<QuizWrongAnswerDto>>
+
+        return new ServiceResult<List<QuizWrongAnswerBookDto>>
         {
-            Success = false,
+            Success = true,
             Message = "成功取得全部錯題",
-            Data = wrongAnswer
+            Data = wrongAnswerCount
         };
     }
     public async Task<ServiceResult<bool>> SubmitVocabularyAnswer(SubmitVocabularyAnswerDto dto)
