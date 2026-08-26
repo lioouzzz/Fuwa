@@ -93,6 +93,7 @@ public class VocabularyQuizService : IVocabularyQuizService
 
     }
 
+
     public async Task<ServiceResult<VocabularyQuizDto>> GenerateVocabularyQuestion(int quizAttemptId)
     {
         //找這次測驗
@@ -302,6 +303,144 @@ public class VocabularyQuizService : IVocabularyQuizService
         };
     }
 
+    public async Task<ServiceResult<QuizResultDto>> GetVocabularyQuizResult(int quizAttemptId)
+    {
+        var quizAttempt = await _dbContext.QuizAttempt
+                                .FirstOrDefaultAsync(q => q.Id == quizAttemptId);
+
+        if (quizAttempt == null)
+        {
+            _logger.LogWarning("找不到此測驗對應的課程Id quizAttempt: {quizAttemptId}", quizAttemptId);
+
+            return new ServiceResult<QuizResultDto>
+            {
+                apiResultStatus = ApiResultStatus.NotFound,
+                Success = false,
+                Message = "找不到此測驗quizAttempt"
+            };
+        }
+
+        var wrongAnswer = quizAttempt.TotalQuestions - quizAttempt.CorrectCount;
+
+        double accuracy = 0;
+        if (quizAttempt.TotalQuestions > 0)
+        {
+            accuracy = ((double)quizAttempt.CorrectCount / quizAttempt.TotalQuestions) * 100;
+
+        }
+
+        var duration = quizAttempt.CompletedAt.Value
+                     - quizAttempt.StartedAt;
+
+        int durationSeconds = (int)duration.TotalSeconds;
+
+        var dto = new QuizResultDto
+        {
+            QuizAttemptId = quizAttempt.Id,
+            LessonId = quizAttempt.LessonId,
+            QuizType = quizAttempt.QuizType,
+            TotalQuestions = quizAttempt.TotalQuestions,
+            CorrectCount = quizAttempt.CorrectCount,
+            WrongCount = wrongAnswer,
+            Accuracy = accuracy,
+            DurationSeconds = durationSeconds
+        };
+
+        return new ServiceResult<QuizResultDto>
+        {
+            Success = true,
+            Message = "成功取得測驗結果",
+            Data = dto
+        };
+    }
+
+
+    //測驗歷史紀錄
+    public async Task<ServiceResult<List<QuizVocabularyHistoryDto>>> GetQuizVocabularyHistory()
+
+    {
+        var history = await _dbContext.QuizAttempt
+                                      .AsNoTracking()
+                                      .Where(q => q.CompletedAt != null)
+                                      .OrderBy(q => q.CompletedAt)
+                                      .Select(q => new QuizVocabularyHistoryDto
+                                      {
+                                          QuizAttemptId = q.Id,
+                                          LessonId = q.LessonId,
+                                          LessonNumber = q.Lesson.LessonNumber,
+                                          QuizType = q.QuizType,
+                                          TotalQuestions = q.TotalQuestions,
+                                          CorrectCount = q.CorrectCount,
+                                          WrongCount = q.TotalQuestions - q.CorrectCount,
+                                          Accuracy = q.TotalQuestions > 0 ? (double)q.CorrectCount / q.TotalQuestions * 100 : 0,
+                                          StartedAt = q.StartedAt,
+                                          CompletedAt = q.CompletedAt,
+                                          DurationSeconds = (int)(q.CompletedAt.Value - q.StartedAt).TotalSeconds
+                                      }).ToListAsync();
+
+        if (history == null)
+        {
+            return new ServiceResult<List<QuizVocabularyHistoryDto>>
+            {
+                apiResultStatus = ApiResultStatus.NotFound,
+                Success = false,
+                Message = "查詢歷史測驗紀錄失敗"
+            };
+        }
+
+
+        return new ServiceResult<List<QuizVocabularyHistoryDto>>
+        {
+            Success = true,
+            Message = "查詢歷史測驗紀錄成功",
+            Data = history
+        };
+
+    }
+
+    //建立全部的錯題本
+    public async Task<ServiceResult<List<QuizWrongAnswerDto>>> GetAllWrongAnswers(VocabularyQuizType quizType)
+    {
+
+        if (!Enum.IsDefined(typeof(VocabularyQuizType), quizType))
+        {
+            return new ServiceResult<List<QuizWrongAnswerDto>>
+            {
+                apiResultStatus = ApiResultStatus.NotFound,
+                Success = false,
+                Message = "不存在的測驗類型"
+            };
+        }
+
+
+        var wrongAnswer = await _dbContext.QuizAnswer
+                        .Where(answer => answer.IsCorrect == false &&
+                               answer.QuizAttempt.QuizType == quizType &&
+                               answer.QuizAttempt.CompletedAt != null)
+
+                        .Select(answer => new QuizWrongAnswerDto
+                        {
+                            LessonId = answer.QuizAttempt.LessonId,
+                            QuizAttemptId = answer.QuizAttemptId,
+                            Type = quizType,
+                            VocabularyId = answer.VocabularyId,
+                            UserAnswer = answer.UserAnswer,
+
+                            //根據type回傳正確答案
+                            CorrectAnswer =
+                            quizType == VocabularyQuizType.ChineseToJapanese ? answer.Vocabulary.JapanenseName
+                            : quizType == VocabularyQuizType.HiraganaToKana ? answer.Vocabulary.JapanenseName
+                           : quizType == VocabularyQuizType.JapaneseToChinese ? answer.Vocabulary.ChineseName
+                           : string.Empty
+                        }).ToListAsync();
+
+        return new ServiceResult<List<QuizWrongAnswerDto>>
+        {
+            Success = false,
+            Message = "成功取得全部錯題",
+            Data = wrongAnswer
+        };
+    }
     public async Task<ServiceResult<bool>> SubmitVocabularyAnswer(SubmitVocabularyAnswerDto dto)
     {
 
