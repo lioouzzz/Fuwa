@@ -82,6 +82,19 @@ public class VocabularyQuizController : ControllerBase
     }
 
 
+    [HttpGet("wrong-answers")]
+    public async Task<IActionResult> GetAllWrongAnswers(VocabularyQuizType type)
+    {
+        var result = await _quizservice.GetAllWrongAnswers(type);
+
+        if (result == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(result);
+    }
+
     [HttpGet("History")]
     public async Task<IActionResult> GetVocabularyQuizHistory()
     {
