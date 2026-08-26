@@ -357,6 +357,7 @@ public class VocabularyQuizService : IVocabularyQuizService
 
     //測驗歷史紀錄
     public async Task<ServiceResult<List<QuizVocabularyHistoryDto>>> GetQuizVocabularyHistory()
+
     {
         var history = await _dbContext.QuizAttempt
                                       .AsNoTracking()
@@ -395,6 +396,50 @@ public class VocabularyQuizService : IVocabularyQuizService
             Data = history
         };
 
+    }
+
+    //建立全部的錯題本
+    public async Task<ServiceResult<List<QuizWrongAnswerDto>>> GetAllWrongAnswers(VocabularyQuizType quizType)
+    {
+
+        if (!Enum.IsDefined(typeof(VocabularyQuizType), quizType))
+        {
+            return new ServiceResult<List<QuizWrongAnswerDto>>
+            {
+                apiResultStatus = ApiResultStatus.NotFound,
+                Success = false,
+                Message = "不存在的測驗類型"
+            };
+        }
+
+
+        var wrongAnswer = await _dbContext.QuizAnswer
+                        .Where(answer => answer.IsCorrect == false &&
+                               answer.QuizAttempt.QuizType == quizType &&
+                               answer.QuizAttempt.CompletedAt != null)
+
+                        .Select(answer => new QuizWrongAnswerDto
+                        {
+                            LessonId = answer.QuizAttempt.LessonId,
+                            QuizAttemptId = answer.QuizAttemptId,
+                            Type = quizType,
+                            VocabularyId = answer.VocabularyId,
+                            UserAnswer = answer.UserAnswer,
+
+                            //根據type回傳正確答案
+                            CorrectAnswer =
+                            quizType == VocabularyQuizType.ChineseToJapanese ? answer.Vocabulary.JapanenseName
+                            : quizType == VocabularyQuizType.HiraganaToKana ? answer.Vocabulary.JapanenseName
+                           : quizType == VocabularyQuizType.JapaneseToChinese ? answer.Vocabulary.ChineseName
+                           : string.Empty
+                        }).ToListAsync();
+
+        return new ServiceResult<List<QuizWrongAnswerDto>>
+        {
+            Success = false,
+            Message = "成功取得全部錯題",
+            Data = wrongAnswer
+        };
     }
     public async Task<ServiceResult<bool>> SubmitVocabularyAnswer(SubmitVocabularyAnswerDto dto)
     {
