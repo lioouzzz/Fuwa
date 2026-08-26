@@ -426,10 +426,18 @@ public class VocabularyQuizService : IVocabularyQuizService
                             VocabularyId = answer.VocabularyId,
                             UserAnswer = answer.UserAnswer,
 
+                            //根據type回傳不同類型的問題
+                            Question =
+
+                            quizType == VocabularyQuizType.ChineseToJapanese ? answer.Vocabulary.ChineseName
+                            : quizType == VocabularyQuizType.HiraganaToKana ? answer.Vocabulary.JapanenseName
+                            : quizType == VocabularyQuizType.JapaneseToChinese ? answer.Vocabulary.JapanenseName
+                            : string.Empty,
+
                             //根據type回傳正確答案
                             CorrectAnswer =
                             quizType == VocabularyQuizType.ChineseToJapanese ? answer.Vocabulary.JapanenseName
-                            : quizType == VocabularyQuizType.HiraganaToKana ? answer.Vocabulary.JapanenseName
+                            : quizType == VocabularyQuizType.HiraganaToKana ? answer.Vocabulary.KanaName
                            : quizType == VocabularyQuizType.JapaneseToChinese ? answer.Vocabulary.ChineseName
                            : string.Empty
                         }).ToListAsync();
