@@ -1,19 +1,10 @@
 namespace Dtos.Quiz;
 
-
-public class QuizWrongAnswerBookDto
+public class QuizAttemptWrongAnswerDto
 {
-    public int LessonNumber { get; set; }
-    public VocabularyQuizType Type { get; set; }
-
     public int VocabularyId { get; set; }
-
     public string Question { get; set; } = string.Empty;
-
-
+    public string UserAnswer { get; set; } = string.Empty;
     public string CorrectAnswer { get; set; } = string.Empty;
-
-    public int WrongVocabularyCount { get; set; }
-
 
 }

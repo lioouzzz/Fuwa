@@ -82,6 +82,49 @@ public class VocabularyQuizController : ControllerBase
     }
 
 
+    [HttpGet("/attempts/{quizAttemptId}/wrong-answers")]
+    public async Task<IActionResult> GetQuizAttemptWrongAnswer([FromRoute] int quizAttemptId)
+    {
+        var result = await _quizservice.GetQuizAttemptWrongAnswer(quizAttemptId);
+
+        if (!result.Success)
+        {
+            if (result.apiResultStatus == ApiResultStatus.Conflict)
+            {
+                return Conflict(new
+                {
+                    Success = false,
+                    message = result.Message
+
+                });
+            }
+
+            if (result.apiResultStatus == ApiResultStatus.NotFound)
+            {
+                return NotFound(new
+                {
+                    Success = false,
+                    message = result.Message
+
+                });
+            }
+
+            if (result.apiResultStatus == ApiResultStatus.Validation)
+            {
+                return NotFound(new
+                {
+                    Success = false,
+                    message = result.Message
+
+                });
+            }
+
+        }
+
+        return Ok(result);
+
+
+    }
     [HttpGet("wrong-answers")]
     public async Task<IActionResult> GetAllWrongAnswers(VocabularyQuizType type)
     {

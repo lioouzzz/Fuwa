@@ -306,6 +306,7 @@ public class VocabularyQuizService : IVocabularyQuizService
     public async Task<ServiceResult<QuizResultDto>> GetVocabularyQuizResult(int quizAttemptId)
     {
         var quizAttempt = await _dbContext.QuizAttempt
+                                .Include(q => q.Lesson)
                                 .FirstOrDefaultAsync(q => q.Id == quizAttemptId);
 
         if (quizAttempt == null)
@@ -337,7 +338,7 @@ public class VocabularyQuizService : IVocabularyQuizService
         var dto = new QuizResultDto
         {
             QuizAttemptId = quizAttempt.Id,
-            LessonId = quizAttempt.LessonId,
+            LessonNumber = quizAttempt.Lesson.LessonNumber,
             QuizType = quizAttempt.QuizType,
             TotalQuestions = quizAttempt.TotalQuestions,
             CorrectCount = quizAttempt.CorrectCount,
@@ -398,7 +399,62 @@ public class VocabularyQuizService : IVocabularyQuizService
 
     }
 
+    //單次測驗錯題本
+    public async Task<ServiceResult<QuizAttemptWrongAnswerDto>> GetQuizAttemptWrongAnswer(int quizAttemptId)
+    {
+        var quizAttemptExists = await _dbContext.QuizAttempt.AnyAsync(q => q.Id == quizAttemptId);
 
+        if (!quizAttemptExists)
+        {
+            _logger.LogWarning("找不到此測驗對應的課程Id quizAttempt: {quizAttemptId}", quizAttemptId);
+
+            return new ServiceResult<QuizAttemptWrongAnswerDto>
+            {
+                apiResultStatus = ApiResultStatus.NotFound,
+                Success = false,
+                Message = "找不到此測驗QuizAttemptId"
+            };
+        }
+
+        var wrongAnswer = await _dbContext.QuizAnswer
+            .Where(answer => answer.QuizAttemptId == quizAttemptId
+                && answer.IsCorrect == false
+                && answer.QuizAttempt.CompletedAt != null)
+            .Select(answer => new QuizAttemptWrongAnswerDto
+            {
+                VocabularyId = answer.VocabularyId,
+
+                Question =
+                    answer.QuizAttempt.QuizType == VocabularyQuizType.ChineseToJapanese ? answer.Vocabulary.ChineseName
+                    : answer.QuizAttempt.QuizType == VocabularyQuizType.HiraganaToKana ? answer.Vocabulary.KanaName
+                    : answer.QuizAttempt.QuizType == VocabularyQuizType.JapaneseToChinese ? answer.Vocabulary.JapanenseName
+                    : string.Empty,
+                UserAnswer = answer.UserAnswer,
+
+                CorrectAnswer =
+                    answer.QuizAttempt.QuizType == VocabularyQuizType.ChineseToJapanese ? answer.Vocabulary.JapanenseName
+                    : answer.QuizAttempt.QuizType == VocabularyQuizType.HiraganaToKana ? answer.Vocabulary.KanaName
+                    : answer.QuizAttempt.QuizType == VocabularyQuizType.JapaneseToChinese ? answer.Vocabulary.ChineseName
+                    : string.Empty
+            })
+            .FirstOrDefaultAsync();
+
+        if (wrongAnswer == null)
+        {
+            return new ServiceResult<QuizAttemptWrongAnswerDto>
+            {
+                Success = false,
+                Message = "此測驗沒有錯題"
+            };
+        }
+
+        return new ServiceResult<QuizAttemptWrongAnswerDto>
+        {
+            Success = true,
+            Message = "單次測驗錯題查詢成功",
+            Data = wrongAnswer
+        };
+    }
     //建立全部的錯題本
     public async Task<ServiceResult<List<QuizWrongAnswerBookDto>>> GetWrongAnswerBookAsync(VocabularyQuizType quizType)
     {
@@ -419,7 +475,7 @@ public class VocabularyQuizService : IVocabularyQuizService
 
                         .GroupBy(answer => new
                         {
-                            answer.QuizAttempt.LessonId,
+                            answer.QuizAttempt.Lesson.LessonNumber,
                             answer.QuizAttempt.QuizType,
                             answer.VocabularyId,
                             answer.Vocabulary.JapanenseName,
@@ -430,7 +486,7 @@ public class VocabularyQuizService : IVocabularyQuizService
 
                         .Select(group => new QuizWrongAnswerBookDto
                         {
-                            LessonId = group.Key.LessonId,
+                            LessonNumber = group.Key.LessonNumber,
                             Type = group.Key.QuizType,
                             VocabularyId = group.Key.VocabularyId,
 
